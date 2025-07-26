@@ -13,20 +13,6 @@ def generate_sql_with_gemini(prompt: str) -> str:
     return response.text.strip()
 
 
-def clean_sql_query1(sql_query: str) -> str:
-    sql_query = sql_query.strip()
-    if sql_query.startswith("```"):
-        sql_query = sql_query.split("```", 1)[1] if "```" in sql_query else sql_query
-    sql_query = (
-        sql_query.replace("sql", "", 1).strip()
-        if sql_query.startswith("sql")
-        else sql_query
-    )
-    sql_query = sql_query.replace("```", "").strip()
-
-    return sql_query
-
-
 def clean_sql_query(sql_query: str, column_names=None) -> str:
     sql_query = sql_query.strip()
 
@@ -35,11 +21,10 @@ def clean_sql_query(sql_query: str, column_names=None) -> str:
     if match:
         sql_query = match.group(1).strip()
 
-    # Eliminar 'sql' solo si está al principio
     if sql_query.lower().startswith("sql"):
         sql_query = sql_query[3:].strip()
 
-    # Rechazar si contiene código Python o palabras clave
+    # Reject if it contains Python code or keywords
     forbidden = [
         "def ",
         "python",
@@ -54,12 +39,12 @@ def clean_sql_query(sql_query: str, column_names=None) -> str:
     if any(bad in sql_query.lower() for bad in forbidden):
         raise ValueError("The generated response is not a valid SQL query.")
 
-    # Bloquear comandos peligrosos al inicio de línea
+    # Block dangerous commands at the beginning of the line
     pattern = r"^\s*(drop|delete|update|insert|alter|create|replace)\b"
     if re.search(pattern, sql_query, re.IGNORECASE | re.MULTILINE):
         raise ValueError("Forbidden SQL command detected.")
 
-    # Validar columnas (opcional)
+    # Validate columns
     if column_names and not any(col in sql_query for col in column_names):
         raise ValueError("Your question is out of scope for the available data.")
 

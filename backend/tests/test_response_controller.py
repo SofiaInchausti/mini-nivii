@@ -27,7 +27,6 @@ def test_save_and_list_responses():
     from app.services.response_service import ResponseService
 
     service = ResponseService()
-    # Guardar una respuesta
     question = "Test question?"
     sql_query = "SELECT 1;"
     result = [{"value": 1}]

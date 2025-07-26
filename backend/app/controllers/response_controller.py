@@ -24,7 +24,6 @@ def create_response(question: str = Body(..., embed=True)):
     status = "error"
     error_message = None
 
-    # 1. Leer el CSV
     try:
         df = pd.read_csv("data/data.csv")
         column_names = df.columns.tolist()
@@ -34,29 +33,27 @@ def create_response(question: str = Body(..., embed=True)):
         service.close()
         raise HTTPException(status_code=500, detail=error_message)
 
-    # 2. Generar el prompt y la query
+
     prompt = f"""
         You are an assistant that converts natural language questions into valid SQLite SQL queries.
         You have access to a pandas DataFrame called 'df' with the following columns: {', '.join(column_names)}.
 
         **CRITICAL INSTRUCTION: MONTH CONVERSION**
-        The 'year_month' column in your DataFrame follows the format 'YYYY-M' for months 1 through 9 (e.g., '2024-3' for March) and 'YYYY-MM' for months 10 through 12 (e.g., '2024-10' for October).
-
-        When the user's question includes a month name, you MUST convert it to its corresponding number. It is crucial that you use A SINGLE DIGIT for months 1-9 and TWO DIGITS for months 10-12, without leading zeros for single-digit months.
+        When the user's question includes a month name, you MUST convert it to its corresponding number.
 
         Here's the exact mapping you MUST use:
-        - January/january → 1
-        - February/february → 2
-        - March/march → 3
-        - April/april → 4
-        - May/may → 5
-        - June/june → 6
-        - July/july → 7
-        - August/august → 8
-        - September/september → 9
+        - January/january → 01
+        - February/february → 02
+        - March/march → 03
+        - April/april → 04
+        - May/may → 05
+        - June/june → 06
+        - July/july → 07
+        - August/august → 08
+        - September/september → 09
         - October/october → 10
         - November/november → 11
-        - December/december → 12
+        - December/december → 12 
 
         If the user question mentions only a month without specifying a year,
         you must use the most recent available year in the data (assume it is 2024 for now).
@@ -69,40 +66,74 @@ def create_response(question: str = Body(..., embed=True)):
 
         """
     prompt1 = f"""
-        You are an assistant that converts natural language questions into valid SQLite SQL queries.
-        You have access to a pandas DataFrame called 'df' with the following columns: {', '.join(column_names)}.
+You are an assistant that converts natural language questions into valid SQLite SQL queries.
+You have access to a pandas DataFrame called 'df' with the following columns: {', '.join(column_names)}.
 
-        The DataFrame includes a preprocessed column called 'year_month' in the format 'YYYY-MM'.
-        When the question includes a month name, you must convert it to a two-digit number:
-        - January/january → 1
-        - February/february → 2
-        - March/march → 3
-        - April/april → 4
-        - May/may → 5
-        - June/june → 6
-        - July/july → 7
-        - August/august → 8
-        - September/september → 9
-        - October/october → 10
-        - November/november → 11
-        - December/december → 12
+The DataFrame includes a preprocessed column called 'year_month' in the format 'YYYY-MM'.
+When the question includes a month name, you must convert it to a two-digit number:
+- January/january → 01
+- February/february → 02
+- March/march → 03
+- April/april → 04
+- May/may → 05
+- June/june → 06
+- July/july → 07
+- August/august → 08
+- September/september → 09
+- October/october → 10
+- November/november → 11
+- December/december → 12
 
-        If the user question mentions only a month without specifying a year,
-        you must use the most recent available year in the data (assume it is 2024 for now).
+If the user question mentions only a month without specifying a year,
+you must use the most recent available year in the data (assume it is 2024 for now).
+If the user question mentions "top N" (where N is a number), use `LIMIT N` in the SQL query.
+If no number is specified, use `LIMIT 1`.
 
-        Only return the SQL query. No explanations, markdown, or code.
+Only return the SQL query. No explanations, markdown, or code.
 
-        Example:
+Examples:
 
-        Question: "What was the top-selling product in <month> <year>?"
-        SQL:
-        SELECT product_name, SUM(quantity) AS total_quantity
-        FROM df
-        WHERE year_month = '<year>-<mm>'
-        GROUP BY product_name
-        ORDER BY total_quantity DESC
-        LIMIT
-        """
+Question: "What was the top-selling product in November 2024?"
+SQL:
+SELECT product_name, SUM(quantity) AS total_quantity
+FROM df
+WHERE year_month = '2024-11'
+GROUP BY product_name
+ORDER BY total_quantity DESC
+LIMIT 1;
+
+Question: "What was the top-selling product in December 2024?"
+SQL:
+SELECT product_name, SUM(quantity) AS total_quantity
+FROM df
+WHERE year_month = '2024-12'
+GROUP BY product_name
+ORDER BY total_quantity DESC
+LIMIT 1;
+
+Question: "What was the top-selling product in September 2024?"
+SQL:
+SELECT product_name, SUM(quantity) AS total_quantity
+FROM df
+WHERE year_month = '2024-09'
+GROUP BY product_name
+ORDER BY total_quantity DESC
+LIMIT 1;
+
+Question: "What were the three top-selling products in 2024?"
+SQL:
+SELECT product_name, SUM(quantity) AS total_quantity
+FROM df
+WHERE year_month LIKE '2024%'
+GROUP BY product_name
+ORDER BY total_quantity DESC
+LIMIT 3;
+
+Now, generate the SQL query for this question only:
+Question: "What was the top-selling product in October?"
+SQL:
+"""
+
 
     try:
         sql_query = generate_sql_with_gemini(prompt)
@@ -112,7 +143,6 @@ def create_response(question: str = Body(..., embed=True)):
         service.save_response(question, sql_query, result, None, None, status, error_message)
         service.close()
         return {"error": error_message, "sql_query": None, "result": None}
-    # 3. Validar la query generada
     if "?" in sql_query:
         error_message = "The generated SQL query contains placeholders ('?'). Please rephrase your question or try again."
         service.save_response(question, sql_query, result, None, None, status, error_message)
@@ -124,7 +154,7 @@ def create_response(question: str = Body(..., embed=True)):
         service.close()
         return {"error": error_message, "sql_query": sql_query, "result": None}
 
-    # 4. Ejecuta la query sobre el CSV
+    # Execute the query on the CSV
     result = query_csv_with_sql(sql_query, csv_path="data/data.csv")
     if isinstance(result, dict) and "error" in result:
         error_message = f"Error executing SQL: {result['error']}"
@@ -132,14 +162,13 @@ def create_response(question: str = Body(..., embed=True)):
         service.close()
         return {"error": error_message, "sql_query": sql_query, "result": None}
 
-    # 5. Si el resultado está vacío
     if not result:
         error_message = "No data found for your query."
         service.save_response(question, sql_query, [], None, None, status, error_message)
         service.close()
         return {"error": error_message, "sql_query": sql_query, "result": []}
 
-    # 6. Caso de éxito
+    # Success
     chart_type = suggest_chart_type(sql_query, result)
     chart_data = build_chart_data(result, chart_type)
     status = "success"

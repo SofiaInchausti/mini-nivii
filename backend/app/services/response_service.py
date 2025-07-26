@@ -33,6 +33,7 @@ class ResponseService:
                 "date": r.date.isoformat() if r.date else None,
                 "chart": r.chart,
                 "chart_data": json.loads(r.chart_data) if r.chart_data else None,
+                "error_message": r.error_message,
             }
             for r in responses
         ]

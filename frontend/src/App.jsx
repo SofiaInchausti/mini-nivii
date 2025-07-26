@@ -40,7 +40,7 @@ function ChatMain({ history }) {
                 </div>
           
                 <div className="bg-green-50 p-2 rounded text-gray-900">
-                  <span>{item?.answer?.summary}</span>
+                  <span>{item?.error_message || item?.error}</span>
                   {item?.chart && item.chart_data && item.chart_data.labels && item.chart_data.datasets && item.chart_data.labels.length > 0 && item.chart_data.datasets.length > 0 && (
                     <ChartRenderer
                       chartType={item.chart}
@@ -71,20 +71,18 @@ function ChatMain({ history }) {
 
 function App() {
   const [history, setHistory] = useState([])
-  const current = history[history.length - 1]
 
   useEffect(() => {
     fetch('http://localhost:8000/')
       .then(res => res.ok ? res.json() : [])
       .then(data => {
-        console.log(data)
         if (Array.isArray(data)) setHistory(data)
       })
       .catch(() => setHistory([]))
   }, [])
 
   function handleSend(question) {
-    // Crea un objeto "pending" con la misma estructura que el backend
+    // Pending message
     const pendingMsg = {
       id: null,
       question,
@@ -118,7 +116,8 @@ function App() {
               chart: data.chart ?? null,
               chart_data: data.chart_data ?? { labels: [], datasets: [] },
               answer: data.answer ?? { summary: '' },
-              pending: false
+              pending: false,
+              error_message: data.error_message || data.error
             };
           }
           return updated;
