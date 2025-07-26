@@ -72,9 +72,9 @@ cd mini-nivii
 
 ### 2. Environment variables
 
-- If you use LLMs that require an API Key, create a `.env` file in `backend/` with your key:
+- This project requires a Gemini API key. Create a `.env` file in `backend/` with your key:
   ```
-  LLM_API_KEY=your_key
+  GEMINI_API_KEY=your_key
   ```
 
 ### 3. Start services with Docker Compose
