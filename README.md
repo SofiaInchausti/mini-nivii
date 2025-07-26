@@ -1,4 +1,4 @@
-# Mini Nivii – Take-Home Challenge
+# Mini Nivii – Take-Home Challenge 📊
 
 ## Objective
 
@@ -66,7 +66,7 @@ mini-nivii/
 ### 1. Clone the repository
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/SofiaInchausti/mini-nivii.git
 cd mini-nivii
 ```
 
